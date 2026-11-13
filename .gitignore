@@ -1,0 +1,6 @@
+node_modules
+.env
+data/facturas.db*
+storage/invoices/*
+npm-debug.log*
+.DS_Store
