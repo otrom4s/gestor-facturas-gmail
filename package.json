@@ -8,13 +8,13 @@
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
-    "@google/genai": "^0.1.1",
-    "archiver": "^7.0.1",
-    "cheerio": "^1.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "googleapis": "^144.0.0",
-    "multer": "^1.4.5-lts.1"
+    "@google/genai": "^3.3.0",
+    "archiver": "^8.0.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "googleapis": "^190.0.0",
+    "multer": "^2.5.0"
   }
 }
