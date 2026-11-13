@@ -443,10 +443,16 @@ async function syncSingleAccount(accountId) {
 
   try {
     const res = await fetch(`/api/accounts/${accountId}/sync`, { method: 'POST' });
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(text || 'Error de respuesta del servidor');
+    }
 
     if (data.success) {
-      showToast(`🎉 ¡Sincronización finalizada!`, 'success');
+      showToast(`🔄 Sincronizando en segundo plano... Sigue el progreso en la barra superior.`, 'info');
     } else {
       showToast(`❌ Error al sincronizar: ${data.error}`, 'error');
     }
