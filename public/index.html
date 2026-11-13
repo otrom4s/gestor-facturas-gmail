@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>FacturaMail AI - Gestor de Facturas Gmail</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <i data-lucide="receipt" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 leading-tight">FacturaMail AI</h1>
+          <p class="text-xs text-slate-500">Gestor de Facturas & Extractor IA</p>
+        </div>
+      </div>
+
+      <!-- Action buttons & User Profile -->
+      <div class="flex items-center space-x-3">
+        <button id="btnSync" onclick="syncActiveAccount()" class="inline-flex items-center space-x-2 px-3.5 py-2 text-sm font-medium rounded-lg text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+          <i data-lucide="refresh-cw" id="syncIcon" class="w-4 h-4"></i>
+          <span>Sincronizar</span>
+        </button>
+
+        <a href="/auth/google/login" class="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>+ Conectar Cuenta</span>
+        </a>
+
+        <!-- Logged user profile widget with referrerpolicy no-referrer -->
+        <div id="userProfileWidget" class="hidden flex items-center space-x-2.5 pl-3 border-l border-slate-200">
+          <img id="userAvatar" src="" alt="Avatar" referrerpolicy="no-referrer" class="w-8 h-8 rounded-full border border-slate-200 shadow-sm object-cover bg-slate-100">
+          <div class="hidden sm:block text-left">
+            <p id="userName" class="text-xs font-bold text-slate-800 leading-none">Usuario</p>
+            <p id="userEmail" class="text-[11px] text-slate-500 leading-tight mt-0.5">email@gmail.com</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Toast Notification Banner -->
+    <div id="toastNotification" class="hidden p-4 rounded-xl border flex items-center justify-between transition-all"></div>
+
+    <!-- Real-Time Progress Bar Card (Active during Sync & AI Analysis) -->
+    <div id="progressCard" class="hidden bg-white rounded-2xl p-5 border border-purple-200 shadow-md shadow-purple-500/5 space-y-3 transition-all">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center animate-spin">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 id="progressTitle" class="text-sm font-bold text-slate-900">Analizando facturas con Gemini AI...</h4>
+            <p id="progressStep" class="text-xs text-slate-500 mt-0.5">Procesando documentos...</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <span id="progressPercent" class="text-xl font-extrabold text-purple-600 font-mono">0%</span>
+        </div>
+      </div>
+      <!-- Progress Bar Track -->
+      <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200/60">
+        <div id="progressBarFill" class="bg-gradient-to-r from-purple-500 via-indigo-500 to-emerald-500 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Stats Cards Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Gastos -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-rose-500">Total Gastos</p>
+          <h3 id="statGastos" class="text-2xl font-bold text-slate-900 mt-1">0,00 €</h3>
+          <p class="text-xs text-slate-500 mt-1">Base: <span id="statBaseGastos" class="font-medium text-slate-700">0,00 €</span></p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <i data-lucide="arrow-down-right" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Total Ingresos -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Total Ingresos</p>
+          <h3 id="statIngresos" class="text-2xl font-bold text-slate-900 mt-1">0,00 €</h3>
+          <p class="text-xs text-slate-500 mt-1">Base: <span id="statBaseIngresos" class="font-medium text-slate-700">0,00 €</span></p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="arrow-up-right" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- IVA Soportado / Repercutido -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-purple-500">IVA Soportado</p>
+          <h3 id="statIvaSoportado" class="text-2xl font-bold text-slate-900 mt-1">0,00 €</h3>
+          <p class="text-xs text-slate-500 mt-1">Repercutido: <span id="statIvaRepercutido" class="font-medium text-slate-700">0,00 €</span></p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+          <i data-lucide="percent" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Alertas de Portales -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-amber-500">Alertas de Portales</p>
+          <h3 id="statAlerts" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1">Sin PDF (Área cliente)</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Navigation & Filters Toolbar -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <!-- Tabs header -->
+      <div class="border-b border-slate-200 px-6 pt-3 flex flex-wrap items-center justify-between gap-4">
+        <nav class="flex space-x-6">
+          <button onclick="switchTab('invoices')" id="tabBtnInvoices" class="py-3 px-1 border-b-2 font-semibold text-sm flex items-center space-x-2 border-emerald-600 text-emerald-600 transition">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>Facturas Descargables</span>
+            <span id="tabBadgeInvoices" class="ml-1.5 py-0.5 px-2 text-xs rounded-full bg-emerald-100 text-emerald-700">0</span>
+          </button>
+          
+          <button onclick="switchTab('alerts')" id="tabBtnAlerts" class="py-3 px-1 border-b-2 font-semibold text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Alertas de Portales Externos</span>
+            <span id="tabBadgeAlerts" class="ml-1.5 py-0.5 px-2 text-xs rounded-full bg-amber-100 text-amber-800">0</span>
+          </button>
+
+          <button onclick="switchTab('accounts')" id="tabBtnAccounts" class="py-3 px-1 border-b-2 font-semibold text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span>Buzones Conectados</span>
+            <span id="tabBadgeAccounts" class="ml-1.5 py-0.5 px-2 text-xs rounded-full bg-slate-100 text-slate-700">0</span>
+          </button>
+        </nav>
+
+        <!-- Quick Export & AI Reanalyze Buttons -->
+        <div id="exportBar" class="flex items-center space-x-2 pb-3">
+          <button onclick="reanalyzeWithAI()" id="btnReanalyze" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>Analizar con IA (Gemini)</span>
+          </button>
+          <button onclick="exportZip()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+            <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+            <span>Descargar ZIP</span>
+          </button>
+          <button onclick="exportCsv()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
+            <i data-lucide="sheet" class="w-3.5 h-3.5"></i>
+            <span>Exportar Excel</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters Bar (Only on Invoices Tab) -->
+      <div id="filtersRow" class="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="relative w-60">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+            <input type="text" id="filterSearch" oninput="debounce(loadInvoices, 300)()" placeholder="Buscar proveedor, CIF, Nº..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+
+          <!-- Filter Type (Ingreso / Gasto) -->
+          <select id="filterType" onchange="loadInvoices()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+            <option value="">Todos (Gastos e Ingresos)</option>
+            <option value="gasto">Solo Gastos</option>
+            <option value="ingreso">Solo Ingresos</option>
+          </select>
+
+          <!-- Filter Quarter -->
+          <select id="filterQuarter" onchange="loadInvoices()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="">Todo el año</option>
+            <option value="1">1T (Ene - Mar)</option>
+            <option value="2">2T (Abr - Jun)</option>
+            <option value="3">3T (Jul - Sep)</option>
+            <option value="4">4T (Oct - Dic)</option>
+          </select>
+
+          <!-- Filter Year -->
+          <select id="filterYear" onchange="loadInvoices()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+
+          <!-- Filter Account -->
+          <select id="filterAccount" onchange="loadInvoices()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="">Todas las cuentas</option>
+          </select>
+        </div>
+
+        <div class="text-xs text-slate-500 font-medium">
+          Mostrando <span id="filteredCount">0</span> facturas
+        </div>
+      </div>
+
+      <!-- Tab Content 1: Facturas Table -->
+      <div id="tabContentInvoices" class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400 bg-slate-50/50">
+              <th class="py-3 px-4">Tipo (Clic para cambiar)</th>
+              <th class="py-3 px-4">Fecha</th>
+              <th class="py-3 px-4">Proveedor / Cliente</th>
+              <th class="py-3 px-4">CIF / NIF</th>
+              <th class="py-3 px-4">Nº Factura</th>
+              <th class="py-3 px-4 text-right">Base</th>
+              <th class="py-3 px-4 text-right">% IVA</th>
+              <th class="py-3 px-4 text-right">Cuota IVA</th>
+              <th class="py-3 px-4 text-right">Total</th>
+              <th class="py-3 px-4 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="invoicesTableBody" class="divide-y divide-slate-100">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+        <div id="invoicesEmptyState" class="hidden py-16 text-center text-slate-400">
+          <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+          <p class="text-base font-medium text-slate-600">No se encontraron facturas</p>
+          <p class="text-xs text-slate-400 mt-1">Conecta una cuenta de Gmail o pulsa "Sincronizar" para comenzar</p>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Alertas de Portales Clientes -->
+      <div id="tabContentAlerts" class="hidden p-6">
+        <div class="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start space-x-3 text-amber-900">
+          <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+          <div class="text-xs sm:text-sm">
+            <span class="font-bold">Facturas sin PDF adjunto detectadas:</span>
+            Estos correos electrónicos corresponden a facturas (suministros, telefonía, compras online) que NO traen el PDF adjunto y requieren entrar en el portal del cliente para descargarlas. Haz clic en el botón de acceso directo para ir a descargarlas.
+          </div>
+        </div>
+
+        <div id="alertsList" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div id="alertsEmptyState" class="hidden py-16 text-center text-slate-400">
+          <i data-lucide="check-circle" class="w-12 h-12 mx-auto mb-3 text-emerald-400"></i>
+          <p class="text-base font-medium text-slate-600">¡Todo al día!</p>
+          <p class="text-xs text-slate-400 mt-1">No hay correos con enlaces a portales pendientes de revisión.</p>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Cuentas Conectadas -->
+      <div id="tabContentAccounts" class="hidden p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Buzones Gmail Conectados</h3>
+            <p class="text-xs text-slate-500">Puedes conectar tu cuenta personal o las cuentas de terceros de tu equipo</p>
+          </div>
+          <a href="/auth/google/login" class="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>+ Conectar Otra Cuenta</span>
+          </a>
+        </div>
+
+        <div id="accountsList" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Modal Detalle Factura / Raw AI JSON -->
+  <div id="invoiceDetailModal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-base" id="modalTitle">Detalle de la Factura</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="modalBody" class="space-y-3 text-sm">
+        <!-- Injected -->
+      </div>
+      <div class="pt-3 border-t flex justify-end">
+        <button onclick="closeModal()" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
