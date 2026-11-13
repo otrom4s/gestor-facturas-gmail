@@ -28,18 +28,28 @@ router.get('/', (req, res) => {
   }
 });
 
-// Trigger synchronization for an account
+// Trigger synchronization for an account (asynchronous to avoid proxy timeouts)
 router.post('/:id/sync', async (req, res) => {
   const accountId = parseInt(req.params.id, 10);
   try {
-    const result = await syncAccount(accountId, req.body || {});
+    const account = db.get('SELECT email FROM accounts WHERE id = ?', [accountId]);
+    if (!account) {
+      return res.status(404).json({ error: 'Cuenta no encontrada' });
+    }
+
+    // Launch synchronization in background
+    syncAccount(accountId, req.body || {}).catch((err) => {
+      console.error('Error in background sync:', err);
+    });
+
+    // Respond immediately so Railway proxy never times out (60s limit)
     res.json({
       success: true,
-      message: `Sincronización completada para ${result.accountEmail}`,
-      details: result
+      started: true,
+      message: `Sincronización iniciada en segundo plano para ${account.email}`
     });
   } catch (err) {
-    console.error('Error syncing account:', err);
+    console.error('Error starting account sync:', err);
     res.status(500).json({ error: err.message });
   }
 });
